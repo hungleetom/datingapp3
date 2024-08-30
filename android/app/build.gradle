@@ -1,0 +1,64 @@
+plugins {
+    id "com.android.application"
+    id "kotlin-android"
+    id "dev.flutter.flutter-gradle-plugin"
+}
+
+android {
+    namespace = "com.example.my_new_app"
+    compileSdk = flutter.compileSdkVersion
+    ndkVersion = flutter.ndkVersion
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_1_8
+        targetCompatibility = JavaVersion.VERSION_1_8
+    }
+
+    kotlinOptions {
+        jvmTarget = JavaVersion.VERSION_1_8
+    }
+
+    defaultConfig {
+        applicationId = "com.example.my_new_app"
+        minSdkVersion flutter.minSdkVersion // Updated minSdkVersion
+        targetSdkVersion 33
+        versionCode = flutter.versionCode
+        versionName = flutter.versionName
+        multiDexEnabled true // Enable MultiDex if your app exceeds the 64K method limit
+    }
+
+    buildTypes {
+        release {
+            signingConfig = signingConfigs.debug
+            minifyEnabled false
+            shrinkResources false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+
+    buildFeatures {
+        viewBinding true
+    }
+
+    lintOptions {
+        checkReleaseBuilds false
+        abortOnError false
+    }
+}
+
+flutter {
+    source = "../.."
+}
+
+dependencies {
+    implementation platform('com.google.firebase:firebase-bom:32.0.0') // Firebase BoM to manage versions
+    implementation 'com.google.firebase:firebase-analytics-ktx'
+    implementation 'com.google.firebase:firebase-messaging-ktx'
+    implementation 'androidx.multidex:multidex:2.0.1' // MultiDex support
+
+    // Add other necessary dependencies here
+    implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
+}
+
+// Apply the Google services Gradle plugin to enable Firebase integration
+apply plugin: 'com.google.gms.google-services'
