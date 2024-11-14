@@ -2,63 +2,68 @@ plugins {
     id "com.android.application"
     id "kotlin-android"
     id "dev.flutter.flutter-gradle-plugin"
+    id "com.google.gms.google-services" // Google services plugin for Firebase
 }
 
 android {
-    namespace = "com.example.my_new_app"
-    compileSdk = flutter.compileSdkVersion
-    ndkVersion = flutter.ndkVersion
+    // Specify the namespace for the app (matches the package name in AndroidManifest.xml)
+    namespace "com.example.my_new_app"  
+    compileSdk 34  // Set to latest SDK version
+
+    ndkVersion flutter.ndkVersion  // Use Flutter's NDK version
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_1_8
-        targetCompatibility = JavaVersion.VERSION_1_8
+        sourceCompatibility JavaVersion.VERSION_1_8  // Use Java 8 for compatibility
+        targetCompatibility JavaVersion.VERSION_1_8
     }
 
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_1_8
+        jvmTarget = "1.8"  // Ensure Kotlin targets JVM 1.8
     }
 
     defaultConfig {
-        applicationId = "com.example.my_new_app"
-        minSdkVersion flutter.minSdkVersion // Updated minSdkVersion
-        targetSdkVersion 33
-        versionCode = flutter.versionCode
-        versionName = flutter.versionName
-        multiDexEnabled true // Enable MultiDex if your app exceeds the 64K method limit
+        applicationId "com.example.my_new_app"  // Application ID matches your package name
+        minSdkVersion 24  // Minimum SDK version for compatibility with Flutter and plugins
+        targetSdkVersion 34  // Target the latest SDK version
+        versionCode flutter.versionCode  // Flutter versioning handled here
+        versionName flutter.versionName
+        multiDexEnabled true  // Enable MultiDex for apps with many methods
+
+        // Generate the BuildConfig class for constant fields
+        buildConfigField "String", "APPLICATION_ID", "\"${applicationId}\""
     }
 
     buildTypes {
         release {
-            signingConfig = signingConfigs.debug
-            minifyEnabled false
-            shrinkResources false
-            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.debug  // Use debug signing config for now
+            minifyEnabled false  // Disable code shrinking for release builds
+            shrinkResources false  // Disable resource shrinking
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'  // Proguard rules
         }
     }
 
     buildFeatures {
-        viewBinding true
+        viewBinding true  // Enable View Binding
+        buildConfig true  // Ensure BuildConfig class is generated
     }
 
     lintOptions {
-        checkReleaseBuilds false
-        abortOnError false
+        checkReleaseBuilds false  // Don't fail the build if lint warnings appear in release
+        abortOnError false  // Continue building even if errors are found during linting
     }
 }
 
 flutter {
-    source = "../.."
+    source "../.."  // Path to the Flutter project source
 }
 
 dependencies {
-    implementation platform('com.google.firebase:firebase-bom:32.0.0') // Firebase BoM to manage versions
-    implementation 'com.google.firebase:firebase-analytics-ktx'
-    implementation 'com.google.firebase:firebase-messaging-ktx'
-    implementation 'androidx.multidex:multidex:2.0.1' // MultiDex support
-
-    // Add other necessary dependencies here
-    implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
+    implementation platform('com.google.firebase:firebase-bom:32.0.0')  // Use Firebase BOM for version control
+    implementation 'com.google.firebase:firebase-analytics-ktx'  // Firebase Analytics KTX
+    implementation 'com.google.firebase:firebase-messaging-ktx'  // Firebase Messaging KTX
+    implementation 'androidx.multidex:multidex:2.0.1'  // Enable MultiDex support for large apps
+    implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"  // Kotlin Standard Library
 }
 
-// Apply the Google services Gradle plugin to enable Firebase integration
+// Apply the Google services Gradle plugin (required for Firebase)
 apply plugin: 'com.google.gms.google-services'

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="naver_scheme">my_new_app</string>
+    <string name="client_id">BwOIcNK5CVWTaGz04LhL</string>
+    <string name="client_secret">N43CWtMh_T</string>
+    <string name="client_name">datingapp</string>
+    <string name="my_new_app">my_new_app</string>
+</resources>

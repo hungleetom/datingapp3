@@ -1,41 +1,54 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:my_new_app/pushNotificationSystem/push_notification_system.dart';
 import 'package:my_new_app/tabScreens/chat_page.dart';
-import 'package:my_new_app/tabScreens/favorite_sent_favorite_received_screen.dart';
 import 'package:my_new_app/tabScreens/like_sent_like_received_screen.dart';
-import 'package:my_new_app/tabScreens/swipping_screen.dart';
 import 'package:my_new_app/tabScreens/user_details_screen.dart';
-import 'package:my_new_app/tabScreens/view_sent_view_received_screen.dart';
+import 'package:my_new_app/tabScreens/match_screen.dart';
+import 'package:my_new_app/tabScreens/search_page.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  final int initialIndex; // Accept initial index as argument
+
+  const HomeScreen({super.key, this.initialIndex = 0});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  int screenIndex = 0;
-
-  final String userID = 'example_user_id'; // Replace with the actual userID you want to pass
-
-  late List<Widget> tabScreenList;
+  late int _screenIndex; // Track the active screen index
+  late List<Widget> _tabScreenList; // List of screens to show in tabs
 
   @override
   void initState() {
     super.initState();
-    
-    // Initialize the tab screen list
-    tabScreenList = [
-      const SwippingScreen(),
-      const ViewSentViewReceivedScreen(),
-      const FavoriteSentFavoriteReceivedScreen(),
-      const ChatPage(receiverUserEmail: 'test@example.com', receiverUserID: 'some_user_id'),
+
+    // Set the initial screen index
+    _screenIndex = widget.initialIndex;
+
+    // Placeholder values for chat page
+    String placeholderUserId = 'testUserId';
+    String placeholderUserNickname = 'TestUser';
+
+    // Initialize the list of tab screens
+    _tabScreenList = [
+      const MatchScreen(),
       const LikeSentLikeReceivedScreen(),
-      UserDetailsScreen(userID: FirebaseAuth.instance.currentUser!.uid), // Pass the userID here
+      ChatPage(
+        receiverUserId: placeholderUserId,
+        receiverUserNickname: placeholderUserNickname,
+      ),
+      const SearchPage(),
+      UserDetailsScreen(userID: FirebaseAuth.instance.currentUser!.uid),
     ];
 
+    // Initialize Push Notification System
+    _initializePushNotification();
+  }
+
+  void _initializePushNotification() {
     PushNotificationSystem notificationSystem = PushNotificationSystem();
     notificationSystem.generateDeviceRegistrationToken();
     notificationSystem.whenNotificationReceived(context);
@@ -43,57 +56,51 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      bottomNavigationBar: BottomNavigationBar(
-        onTap: (indexNumber) {
-          setState(() {
-            screenIndex = indexNumber;
-          });
-        },
-        type: BottomNavigationBarType.fixed,
-        backgroundColor: Colors.black,
-        selectedItemColor: Colors.white,
-        unselectedItemColor: Colors.white12,
-        currentIndex: screenIndex,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(
-              Icons.home,
-              size: 30,
+    return WillPopScope(
+      onWillPop: () async {
+        SystemNavigator.pop(); // Close the app when back button is pressed
+        return false;
+      },
+      child: Scaffold(
+        bottomNavigationBar: BottomNavigationBar(
+          type: BottomNavigationBarType.fixed, // Keep all icons visible
+          backgroundColor: Colors.black, // Background color of the nav bar
+          selectedItemColor: Colors.white, // Active icon color
+          unselectedItemColor: Colors.white12, // Inactive icon color
+          currentIndex: _screenIndex, // Highlight the active tab
+          onTap: (int index) {
+            setState(() {
+              _screenIndex = index; // Update the active tab index
+            });
+          },
+          items: const [
+            BottomNavigationBarItem(
+              icon: Icon(Icons.home, size: 30),
+              label: "Home",
             ),
-            label: ""
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(
-              Icons.remove_red_eye,
-              size: 30,
+            BottomNavigationBarItem(
+              icon: Icon(Icons.star, size: 30),
+              label: "Likes",
             ),
-            label: ""
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(
-              Icons.star,
-              size: 30,
+            BottomNavigationBarItem(
+              icon: Icon(Icons.chat, size: 30),
+              label: "Chat",
             ),
-            label: ""
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(
-              Icons.favorite,
-              size: 30,
+            BottomNavigationBarItem(
+              icon: Icon(Icons.search, size: 30),
+              label: "Search",
             ),
-            label: ""
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(
-              Icons.person,
-              size: 30,
+            BottomNavigationBarItem(
+              icon: Icon(Icons.person, size: 30),
+              label: "Profile",
             ),
-            label: ""
-          ),
-        ],
+          ],
+        ),
+        body: IndexedStack(
+          index: _screenIndex,
+          children: _tabScreenList, // Display the active tab's content
+        ),
       ),
-      body: tabScreenList[screenIndex],
     );
   }
 }

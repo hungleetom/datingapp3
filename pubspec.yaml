@@ -11,8 +11,10 @@ dependencies:
   flutter:
     sdk: flutter
 
+  kakao_flutter_sdk_user: ^1.9.5 
   cupertino_icons: 
   get: 
+  shared_preferences: ^2.0.13
   image_picker: 
   firebase_core: 
   firebase_auth: 
@@ -20,11 +22,23 @@ dependencies:
   firebase_storage: 
   firebase_messaging: 
   flutter_image_slider: 
+  firebase_analytics: 
+  google_fonts:
+  delightful_toast:
+  path:
   http:
   googleapis:
   googleapis_auth:
   permission_handler: 
-
+  flutter_webrtc:
+  flutter_naver_login: ^1.8.0
+  url_launcher: ^6.3.0
+  uni_links3: ^0.5.1
+  google_sign_in: ^6.2.1
+  intl_phone_field:
+  geolocator:
+  geocoding:
+  flutter_line_sdk: 2.3.7
 
 dev_dependencies:
   flutter_test:
