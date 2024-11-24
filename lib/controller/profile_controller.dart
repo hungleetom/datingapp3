@@ -110,7 +110,7 @@ class ProfileController extends GetxController {
   Future<void> _sendFirebaseNotification(
       String token, String receiverID, String type, String senderName) async {
     final String accessToken = await _getAccessToken();
-    const url = 'https://fcm.googleapis.com/v1/projects/dating-app-7738e/messages:send';
+    const url = 'https://fcm.googleapis.com/v1/projects/YOUR_PROJECT_ID/messages:send'; 
 
     var payload = {
       "message": {
@@ -147,8 +147,8 @@ class ProfileController extends GetxController {
   static Future<String> _getAccessToken() async {
     final serviceAccount = {
       "type": "service_account",
-      "project_id": "dating-app-7738e",
-      // ...Other service account fields...
+      "project_id": "YOUR_PROJECT_ID", // Replace with your project ID
+      // Add placeholders or remove sensitive service account data
     };
 
     final scopes = [

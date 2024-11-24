@@ -49,7 +49,7 @@ class _PictureScreenState extends State<PictureScreen> {
                       setState(() => _isUploading = true);
                       await _savePictures();
                       setState(() => _isUploading = false);
-                      Get.offNamed('/questionnaire'); // Use GetX navigation
+                      Get.offNamed('/questionnaire'); // Navigation handled using GetX
                     }
                   : null,
               child: _isUploading
@@ -87,7 +87,8 @@ class _PictureScreenState extends State<PictureScreen> {
         'photos': imageUrls,
       }, SetOptions(merge: true));
     } catch (e) {
-      Get.snackbar('Error', 'Failed to upload pictures: $e');
+      // Censored error handling for public sharing
+      Get.snackbar('Error', 'Failed to upload pictures.');
     }
   }
 
@@ -95,10 +96,10 @@ class _PictureScreenState extends State<PictureScreen> {
     final user = FirebaseAuth.instance.currentUser;
     final storageRef = FirebaseStorage.instance
         .ref()
-        .child('users/${user!.uid}/${image.name}');
+        .child('users/${user!.uid}/${image.name}'); // Sensitive path using UID
 
     final uploadTask = storageRef.putFile(File(image.path));
     final snapshot = await uploadTask;
-    return await snapshot.ref.getDownloadURL();
+    return await snapshot.ref.getDownloadURL(); // Returns image URL
   }
 }

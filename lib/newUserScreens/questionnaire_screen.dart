@@ -1,8 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:my_new_app/models/questionnaire_data.dart';
+import 'package:my_new_app/models/questionnaire_data.dart'; // Placeholder for your local model
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:my_new_app/newUserScreens/mbti_selection_screen.dart';
+import 'package:my_new_app/newUserScreens/mbti_selection_screen.dart'; // Placeholder for MBTI selection screen
 
 class QuestionnaireScreen extends StatefulWidget {
   const QuestionnaireScreen({super.key});
@@ -12,7 +12,7 @@ class QuestionnaireScreen extends StatefulWidget {
 }
 
 class _QuestionnaireScreenState extends State<QuestionnaireScreen> {
-  final QuestionnaireService _questionnaireService = QuestionnaireService();
+  final QuestionnaireService _questionnaireService = QuestionnaireService(); // Your service implementation
   List<Map<String, dynamic>> friendshipQuestions = [];
   List<Map<String, dynamic>> romanticQuestions = [];
 
@@ -55,7 +55,7 @@ class _QuestionnaireScreenState extends State<QuestionnaireScreen> {
         isLoading = false;
       });
     } catch (e) {
-      print('Error loading data: $e');
+      print('Error loading data: $e'); // Simplified error message
       setState(() {
         isError = true;
         isLoading = false;
@@ -64,42 +64,41 @@ class _QuestionnaireScreenState extends State<QuestionnaireScreen> {
   }
 
   Future<void> submitAnswers() async {
-  final userId = FirebaseAuth.instance.currentUser?.uid;
+    final userId = FirebaseAuth.instance.currentUser?.uid;
 
-  if (userId != null) {
-    try {
-      // Group answers by category
-      final Map<String, dynamic> allAnswers = {
-        'friendship': selectedFriendshipAnswers,
-        'romantic': selectedRomanticAnswers,
-      };
+    if (userId != null) {
+      try {
+        // Group answers by category
+        final Map<String, dynamic> allAnswers = {
+          'friendship': selectedFriendshipAnswers,
+          'romantic': selectedRomanticAnswers,
+        };
 
-      // Save the grouped answers under 'questionnaireAnswers'
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(userId)
-          .set(
-        {'questionnaireAnswers': allAnswers},
-        SetOptions(merge: true), // Prevent overwriting other user data
-      );
+        // Save the grouped answers under 'questionnaireAnswers'
+        await FirebaseFirestore.instance
+            .collection('users') // Replace 'users' with placeholder if needed
+            .doc(userId)
+            .set(
+          {'questionnaireAnswers': allAnswers},
+          SetOptions(merge: true), // Prevent overwriting other user data
+        );
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Answers submitted successfully')),
-      );
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Answers submitted successfully')),
+        );
 
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const MbtiSelectionScreen()),
-      );
-    } catch (e) {
-      print('Error saving answers: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Error saving answers')),
-      );
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const MbtiSelectionScreen()),
+        );
+      } catch (e) {
+        print('Error saving answers: $e'); // Simplified error message
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Error saving answers')),
+        );
+      }
     }
   }
-}
-
 
   @override
   Widget build(BuildContext context) {
@@ -115,7 +114,7 @@ class _QuestionnaireScreenState extends State<QuestionnaireScreen> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Text('Error loading questions. Please try again.'),
+                      const Text('Error loading questions. Please try again.'), // Simplified error message
                       ElevatedButton(
                         onPressed: loadQuestionsAndAnswers,
                         child: const Text('Retry'),

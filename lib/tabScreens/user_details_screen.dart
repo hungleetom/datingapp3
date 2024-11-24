@@ -17,7 +17,7 @@ class UserDetailsScreen extends StatefulWidget {
 class _UserDetailsScreenState extends State<UserDetailsScreen> {
   String name = '', age = '', phoneNumber = '', city = '', country = '', mbti = '';
   DateTime? birthdate;
-  final String defaultImageUrl = "https://firebasestorage.googleapis.com/v0/b/dating-app-7738e.appspot.com/o/Place%20Holder%2FSample_User_Icon.png?alt=media&token=2ab2bec4-e6ec-461f-9c5b-96c6b6fbfd15";
+  final String defaultImageUrl = "default_image_url";
   List<String> imageUrls = [];
 
   @override
