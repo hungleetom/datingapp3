@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -8,6 +7,7 @@ import 'package:my_new_app/controller/authentication_controller.dart';
 import 'package:my_new_app/homeScreen/home_screen.dart';
 import 'package:flutter_line_sdk/flutter_line_sdk.dart'; // Line login package
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:my_new_app/newUserScreens/nickname_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -86,35 +86,32 @@ class LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  // Firestore User Check (Updated to Skip Phone Verification)
   Future<void> _checkUserInFirestore() async {
-    try {
-      final firebaseUser = FirebaseAuth.instance.currentUser;
-      if (firebaseUser != null) {
-        DocumentSnapshot userDoc = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(firebaseUser.uid)
-            .get();
+  try {
+    final firebaseUser = FirebaseAuth.instance.currentUser;
 
-        if (userDoc.exists) {
-          // User exists, navigate directly to HomeScreen (no phone verification)
-          Get.offAll(() => const HomeScreen());
-        } else {
-          // User doesn't exist, create a new Firestore entry for the user
-          await FirebaseFirestore.instance.collection('users').doc(firebaseUser.uid).set({
-            'email': firebaseUser.email,
-            'uid': firebaseUser.uid,
-            'createdAt': FieldValue.serverTimestamp(),
-          });
-          Get.offAll(() => const HomeScreen());
-        }
+    if (firebaseUser != null) {
+      // Check if the user exists in Firestore
+      DocumentSnapshot userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(firebaseUser.uid)
+          .get();
+
+      if (!userDoc.exists) {
+        // If user is new, start onboarding process at nickname screen
+        Get.offAll(() => const NicknameScreen());
       } else {
-        Get.snackbar("Login Failed", "Unable to authenticate user.");
+        // If user already exists, navigate to the home screen
+        Get.offAll(() => const HomeScreen());
       }
-    } catch (error) {
-      Get.snackbar("Login Failed", "Failed to retrieve user data: $error");
+    } else {
+      Get.snackbar("Login Failed", "Unable to authenticate user.");
     }
+  } catch (error) {
+    Get.snackbar("Login Failed", "Failed to retrieve user data: $error");
   }
+}
+
 
   // Google Sign-In
   Future<void> signInWithGoogle() async {

@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:agora_rtc_engine/agora_rtc_engine.dart';
+import 'package:my_new_app/homeScreen/home_screen.dart'; // Import HomeScreen
 
 class GamePageSecond extends StatefulWidget {
   final String sessionId;
@@ -14,6 +16,10 @@ class GamePageSecond extends StatefulWidget {
 }
 
 class _GamePageSecondState extends State<GamePageSecond> {
+  static const String appId = "48a56dde7fc34804a142356a57f03c34"; // Replace with your Agora App ID
+  static const String tempToken = "007eJxTYFgRpPFnrd2EmX2fSn89asst9fxsN/2U2c66H8fXv+xsTL2jwGBikWhqlpKSap6WbGxiYWCSaGhiZGxqlmhqnmZgDBSaMNMmvSGQkWG1vhwzIwMEgvg8DCWpxSXxyRmJeXmpOQwMAH1zJWc="; // Replace with a temporary token for testing
+  static const String channelName = "relationship_game"; // Replace with your channel name
+
   String currentUserId = FirebaseAuth.instance.currentUser!.uid;
   String opponentNickname = 'Loading...';
   int currentScore = 0;
@@ -22,65 +28,121 @@ class _GamePageSecondState extends State<GamePageSecond> {
   String currentQuestion = '';
   List<Map<String, dynamic>> questions = [];
 
-  final _localRenderer = RTCVideoRenderer();
-  final _remoteRenderer = RTCVideoRenderer();
-  RTCPeerConnection? _peerConnection;
-  MediaStream? _localStream;
-
-  // Voice activity indicator values
   bool isSpeaking = false;
   bool isOpponentSpeaking = false;
+  late RtcEngine _engine;
 
   @override
   void initState() {
     super.initState();
-    _initializeGame();
-    initRenderers();
-    _startVoiceChat();
+    print("Initializing GamePageSecond...");
+    initializeAgora();
     fetchOpponentNickname();
+    _initializeGame();
   }
 
-  Future<void> _initializeGame() async {
-    DocumentSnapshot sessionSnapshot = await FirebaseFirestore.instance
-        .collection('relationship_game_sessions')
-        .doc(widget.sessionId)
-        .get();
+  Future<void> initializeAgora() async {
+    print("Initializing Agora...");
+    _engine = createAgoraRtcEngine();
+    await _engine.initialize(const RtcEngineContext(appId: appId));
 
-    setState(() {
-      if (sessionSnapshot['player1'] == currentUserId) {
-        isMyTurn = true;
-      } else {
-        isMyTurn = false;
-      }
-    });
+    // Set event handlers
+    _engine.registerEventHandler(RtcEngineEventHandler(
+      onJoinChannelSuccess: (connection, elapsed) {
+        print("Successfully joined channel: ${connection.channelId}");
+      },
+      onUserJoined: (connection, remoteUid, elapsed) {
+        print("Remote user joined: $remoteUid");
+      },
+      onUserOffline: (connection, remoteUid, reason) {
+        print("Remote user left: $remoteUid, reason: $reason");
+      },
+    ));
 
-    fetchQuestionsForGame();
-    _listenForGameChanges();
+    // Enable audio
+    await _engine.enableAudio();
+
+    // Join the channel
+    await _engine.joinChannel(
+      token: tempToken,
+      channelId: channelName,
+      uid: 0, // Local user UID
+      options: const ChannelMediaOptions(),
+    );
+
+    // Simulate voice activity for UI purposes
+    _simulateVoiceActivity();
   }
 
   Future<void> fetchOpponentNickname() async {
-    DocumentSnapshot userSnapshot = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(widget.opponentUserId)
-        .get();
+    print("Fetching opponent nickname...");
+    try {
+      DocumentSnapshot userSnapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(widget.opponentUserId)
+          .get();
 
-    setState(() {
-      opponentNickname = userSnapshot['nickname'] ?? 'Unknown';
-    });
+      if (userSnapshot.exists && userSnapshot.data() != null && mounted) {
+        setState(() {
+          opponentNickname = userSnapshot['nickname'] ?? 'Unknown';
+        });
+      } else if (mounted) {
+        setState(() {
+          opponentNickname = 'Unknown';
+        });
+      }
+    } catch (e) {
+      print("Error fetching opponent nickname: $e");
+      if (mounted) {
+        setState(() {
+          opponentNickname = 'Error loading name';
+        });
+      }
+    }
+  }
+
+  Future<void> _initializeGame() async {
+    print("Initializing game session...");
+    try {
+      DocumentSnapshot sessionSnapshot = await FirebaseFirestore.instance
+          .collection('relationship_game_sessions')
+          .doc(widget.sessionId)
+          .get();
+
+      if (sessionSnapshot.exists) {
+        setState(() {
+          if (sessionSnapshot['player1'] == currentUserId) {
+            isMyTurn = true;
+          } else {
+            isMyTurn = false;
+          }
+        });
+        fetchQuestionsForGame();
+        _listenForGameChanges();
+      }
+    } catch (e) {
+      print("Error initializing game session: $e");
+    }
   }
 
   Future<void> fetchQuestionsForGame() async {
-    QuerySnapshot questionSnapshot = await FirebaseFirestore.instance
-        .collection('relationship_questions')
-        .get();
+    print("Fetching questions for game...");
+    try {
+      QuerySnapshot questionSnapshot = await FirebaseFirestore.instance
+          .collection('relationship_questions')
+          .get();
 
-    setState(() {
-      questions = questionSnapshot.docs.map((doc) => doc.data() as Map<String, dynamic>).toList();
-      currentQuestion = questions.isNotEmpty ? questions[0]['question'] : 'No questions available';
-    });
+      setState(() {
+        questions = questionSnapshot.docs.map((doc) => doc.data() as Map<String, dynamic>).toList();
+        currentQuestion = questions.isNotEmpty ? questions[0]['question'] : 'No questions available';
+      });
+    } catch (e) {
+      print("Error fetching questions: $e");
+    }
   }
 
   void _listenForGameChanges() {
+    print("Listening for game session changes...");
     FirebaseFirestore.instance
         .collection('relationship_game_sessions')
         .doc(widget.sessionId)
@@ -96,119 +158,7 @@ class _GamePageSecondState extends State<GamePageSecond> {
     });
   }
 
-  Future<void> initRenderers() async {
-    await _localRenderer.initialize();
-    await _remoteRenderer.initialize();
-  }
-
-  Future<void> _startVoiceChat() async {
-    final Map<String, dynamic> configuration = {
-      'iceServers': [
-        {'urls': 'stun:stun.l.google.com:19302'},
-      ]
-    };
-
-    _peerConnection = await createPeerConnection(configuration);
-
-    _peerConnection?.onIceCandidate = (RTCIceCandidate candidate) {
-      FirebaseFirestore.instance
-          .collection('relationship_game_sessions')
-          .doc(widget.sessionId)
-          .collection('ice_candidates')
-          .add({
-        'candidate': candidate.toMap(),
-        'sender': currentUserId,
-      });
-    };
-
-    _localStream = await navigator.mediaDevices.getUserMedia({
-      'audio': true,
-      'video': false,
-    });
-
-    _localStream?.getTracks().forEach((track) {
-      _peerConnection?.addTrack(track, _localStream!);
-    });
-
-    _localRenderer.srcObject = _localStream;
-
-    _peerConnection?.onAddStream = (MediaStream stream) {
-      setState(() {
-        _remoteRenderer.srcObject = stream;
-      });
-    };
-
-    if (isMyTurn) {
-      RTCSessionDescription offer = await _peerConnection!.createOffer();
-      await _peerConnection!.setLocalDescription(offer);
-
-      await FirebaseFirestore.instance
-          .collection('relationship_game_sessions')
-          .doc(widget.sessionId)
-          .collection('webrtc')
-          .doc('offer')
-          .set({'offer': offer.toMap()});
-    } else {
-      DocumentSnapshot offerSnapshot = await FirebaseFirestore.instance
-          .collection('relationship_game_sessions')
-          .doc(widget.sessionId)
-          .collection('webrtc')
-          .doc('offer')
-          .get();
-
-      if (offerSnapshot.exists) {
-        RTCSessionDescription offer = RTCSessionDescription(
-            offerSnapshot['offer']['sdp'], offerSnapshot['offer']['type']);
-
-        await _peerConnection!.setRemoteDescription(offer);
-
-        RTCSessionDescription answer = await _peerConnection!.createAnswer();
-        await _peerConnection!.setLocalDescription(answer);
-
-        await FirebaseFirestore.instance
-            .collection('relationship_game_sessions')
-            .doc(widget.sessionId)
-            .collection('webrtc')
-            .doc('answer')
-            .set({'answer': answer.toMap()});
-      }
-    }
-
-    DocumentSnapshot answerSnapshot = await FirebaseFirestore.instance
-        .collection('relationship_game_sessions')
-        .doc(widget.sessionId)
-        .collection('webrtc')
-        .doc('answer')
-        .get();
-
-    if (answerSnapshot.exists) {
-      RTCSessionDescription answer = RTCSessionDescription(
-          answerSnapshot['answer']['sdp'], answerSnapshot['answer']['type']);
-
-      await _peerConnection!.setRemoteDescription(answer);
-    }
-
-    FirebaseFirestore.instance
-        .collection('relationship_game_sessions')
-        .doc(widget.sessionId)
-        .collection('ice_candidates')
-        .snapshots()
-        .listen((snapshot) {
-      for (var doc in snapshot.docs) {
-        if (doc.exists && doc['sender'] != currentUserId) {
-          _peerConnection?.addCandidate(
-            RTCIceCandidate(doc['candidate']['candidate'],
-                doc['candidate']['sdpMid'], doc['candidate']['sdpMLineIndex']),
-          );
-        }
-      }
-    });
-
-    _simulateVoiceActivity(); // Simulate voice activity detection
-  }
-
   void _simulateVoiceActivity() {
-    // Simulated voice activity detection, toggling every 1 second for example purposes.
     Future.delayed(const Duration(seconds: 1), () {
       if (mounted) {
         setState(() {
@@ -260,16 +210,29 @@ class _GamePageSecondState extends State<GamePageSecond> {
         .doc(widget.sessionId)
         .update({'gameStatus': 'completed'});
 
-    Navigator.pop(context);
+    _navigateToHomeScreen();
+  }
+
+  void _leaveGame() async {
+    print("Leaving game session...");
+    await _engine.leaveChannel();
+    _navigateToHomeScreen();
+  }
+
+  void _navigateToHomeScreen() {
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const HomeScreen(initialIndex: 0), // Adjust index as needed
+      ),
+      (route) => false,
+    );
   }
 
   @override
   void dispose() {
-    _localStream?.dispose();
-    _peerConnection?.close();
-    _peerConnection?.dispose();
-    _localRenderer.dispose();
-    _remoteRenderer.dispose();
+    _engine.leaveChannel();
+    _engine.release();
     super.dispose();
   }
 
@@ -280,12 +243,21 @@ class _GamePageSecondState extends State<GamePageSecond> {
     return Scaffold(
       appBar: AppBar(
         title: Text('Relationship Game with $opponentNickname'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.exit_to_app),
+            onPressed: _leaveGame,
+          ),
+        ],
       ),
       body: Column(
         children: [
           Padding(
             padding: const EdgeInsets.all(8.0),
-            child: Text('Current Question: $formattedQuestion', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            child: Text(
+              'Current Question: $formattedQuestion',
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
           ),
           if (isMyTurn)
             Column(

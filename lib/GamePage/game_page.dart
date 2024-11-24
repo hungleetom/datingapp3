@@ -2,8 +2,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter_webrtc/flutter_webrtc.dart';
-import 'package:my_new_app/tabScreens/match_screen.dart';
+import 'package:agora_rtc_engine/agora_rtc_engine.dart';
+import 'package:my_new_app/homeScreen/home_screen.dart'; // Import HomeScreen
 
 class GamePage extends StatefulWidget {
   final String sessionId;
@@ -16,143 +16,56 @@ class GamePage extends StatefulWidget {
 }
 
 class _GamePageState extends State<GamePage> {
+  static const String appId = "app_id"; // Replace with your Agora App ID
+  static const String tempToken = "temp_token"; // Replace with a temporary token for testing
+  static const String channelName = "name"; // Replace with your channel name
+
   String currentUserId = FirebaseAuth.instance.currentUser!.uid;
   String opponentNickname = 'Loading...';
-  List<Map<String, dynamic>> questions = [];
-  List<Map<String, dynamic>> opponentQuestions = [];
 
   bool isGameStarted = false;
   bool isAnsweringPhase = false;
-  bool isRendererInitialized = false;
-  bool _isCalling = false;  // To prevent duplicate calls
+  bool isAudioMuted = false;
   int chatTimerSeconds = 450; // 7 minutes and 30 seconds for chat
-  int answerTimerSeconds = 30;
+  int answerTimerSeconds = 30; // Time for answering phase
   Timer? gameTimer;
-  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? signalingSubscription;
 
-  RTCPeerConnection? _peerConnection;
-  MediaStream? _localStream;
-  final _remoteRenderer = RTCVideoRenderer();
+  late RtcEngine _engine; // Agora RTC Engine
+  List<Map<String, dynamic>> questions = [];
+  List<Map<String, dynamic>> opponentQuestions = [];
 
   @override
   void initState() {
     super.initState();
     print("Initializing GamePage...");
-    _initializeGame();
-    _initializeWebRTC();
+    initializeAgora();
     fetchOpponentNickname();
+    _initializeGame();
   }
 
-  Future<void> _initializeWebRTC() async {
-    print("Initializing WebRTC...");
-    await _remoteRenderer.initialize();
-    isRendererInitialized = true;
-
-    await _reinitializePeerConnection(); // Initialize the peer connection
-  }
-
-  Future<void> _reinitializePeerConnection() async {
-    print("Reinitializing PeerConnection...");
-
-    await _peerConnection?.close(); // Close any existing connection if open
-    _peerConnection = await createPeerConnection({
-      'iceServers': [
-        {'urls': 'stun:stun.l.google.com:19302'},
-      ]
-    });
-
-    _peerConnection?.onIceCandidate = (RTCIceCandidate candidate) {
-      print("Generated ICE Candidate: ${candidate.candidate}");
-      _sendCandidateToOpponent(candidate);
-    };
-
-    _peerConnection?.onTrack = (RTCTrackEvent event) {
-      if (event.track.kind == 'audio' && event.streams.isNotEmpty && mounted) {
-        setState(() {
-          _remoteRenderer.srcObject = event.streams[0];
-        });
-        print("Remote audio track added to renderer.");
-      }
-    };
-
-    _peerConnection?.onIceConnectionState = (state) {
-      print("ICE connection state changed to: $state");
-      if (state == RTCIceConnectionState.RTCIceConnectionStateClosed) {
-        print("PeerConnection closed, reinitializing...");
-        _reinitializePeerConnection();
-      }
-    };
-
-    _localStream = await navigator.mediaDevices.getUserMedia({
-      'audio': {'googNoiseSuppression': true, 'googEchoCancellation': true},
-      'video': false
-    });
-
-    if (_localStream == null || _localStream!.getTracks().isEmpty) {
-      print("Error: Local stream or tracks are unavailable");
-      return;
-    }
-
-    for (var track in _localStream!.getTracks()) {
-      print("Adding local track: ${track.id}");
-      _peerConnection?.addTrack(track, _localStream!);
-    }
-
-    print("PeerConnection reinitialized.");
-  }
-
-  Future<void> _startCallIfCaller() async {
-    if (_isCalling || _peerConnection == null || 
-        _peerConnection!.iceConnectionState == RTCIceConnectionState.RTCIceConnectionStateClosed) {
-      print("Cannot start call: either already calling or PeerConnection is closed.");
-      return;
-    }
-
-    _isCalling = true;  // Prevent duplicate calls
+  Future<void> initializeAgora() async {
+    print("Initializing Agora...");
     try {
-      final sessionSnapshot = await FirebaseFirestore.instance.collection('game_sessions').doc(widget.sessionId).get();
+      _engine = createAgoraRtcEngine();
+      await _engine.initialize(
+        const RtcEngineContext(appId: appId),
+      );
+      print("Agora initialized successfully");
 
-      if (!sessionSnapshot.exists && _peerConnection != null) {
-        final offer = await _peerConnection!.createOffer();
-        await _peerConnection!.setLocalDescription(offer);
-        print("Created and sent offer as caller.");
-        _sendOfferToOpponent(offer);
+      await _engine.joinChannel(
+        token: tempToken, // Replace with a valid token
+        channelId: channelName,
+        uid: 0,
+        options: const ChannelMediaOptions(),
+      );
+      print("Joined Agora channel successfully");
+    } catch (e) {
+      print("Error initializing Agora: $e");
+      if (e is AgoraRtcException) {
+        print("Agora Exception Code: ${e.code}");
       }
-    } catch (error) {
-      print("Error in startCallIfCaller: $error");
-    } finally {
-      _isCalling = false; // Reset after attempt
+      _leaveGame(); // Navigate back gracefully
     }
-  }
-
-  Future<void> _sendOfferToOpponent(RTCSessionDescription offer) async {
-    print("Sending offer to opponent...");
-    await FirebaseFirestore.instance.collection('game_sessions').doc(widget.sessionId).collection('offer').add({
-      'sdp': offer.sdp,
-      'type': offer.type,
-      'senderId': currentUserId,
-    });
-  }
-
-  Future<void> _sendAnswerToOpponent(RTCSessionDescription answer) async {
-    print("Sending answer to opponent...");
-    await FirebaseFirestore.instance.collection('game_sessions').doc(widget.sessionId).collection('answer').add({
-      'sdp': answer.sdp,
-      'type': answer.type,
-      'senderId': currentUserId,
-    });
-  }
-
-  Future<void> _sendCandidateToOpponent(RTCIceCandidate candidate) async {
-    print("Sending ICE candidate to opponent...");
-    await FirebaseFirestore.instance
-        .collection('game_sessions')
-        .doc(widget.sessionId)
-        .collection('candidates')
-        .add({
-      'candidate': candidate.toMap(),
-      'senderId': currentUserId,
-    });
   }
 
   Future<void> fetchOpponentNickname() async {
@@ -193,7 +106,6 @@ class _GamePageState extends State<GamePage> {
 
       if (sessionSnapshot.exists) {
         fetchQuestionsForGame();
-        _listenForGameChanges();
 
         Future.delayed(const Duration(seconds: 3), () {
           if (mounted) {
@@ -225,7 +137,7 @@ class _GamePageState extends State<GamePage> {
         if (data.containsKey('questionnaireAnswers') && data['questionnaireAnswers'] is Map) {
           Map<String, dynamic> answers = data['questionnaireAnswers'];
           setState(() {
-            opponentQuestions = answers.entries
+            questions = answers.entries
                 .where((e) => e.value != null)
                 .map<Map<String, dynamic>>((e) => {"question": e.value})
                 .toList();
@@ -235,27 +147,6 @@ class _GamePageState extends State<GamePage> {
     } catch (e) {
       print("Error fetching opponent questions: $e");
     }
-  }
-
-  void _listenForGameChanges() {
-    print("Listening for game session changes...");
-    FirebaseFirestore.instance
-        .collection('game_sessions')
-        .doc(widget.sessionId)
-        .snapshots()
-        .listen((gameSnapshot) {
-      if (!gameSnapshot.exists || gameSnapshot.data() == null) {
-        if (isGameOverForBothUsers(gameSnapshot)) {
-          print("Game session ended for both users.");
-          _leaveGame();
-        }
-      }
-    });
-  }
-
-  bool isGameOverForBothUsers(DocumentSnapshot<Map<String, dynamic>> gameSnapshot) {
-    final data = gameSnapshot.data();
-    return data?['status'] == 'finished';
   }
 
   void _startChatTimer() {
@@ -330,46 +221,39 @@ class _GamePageState extends State<GamePage> {
         .doc(widget.sessionId)
         .delete();
 
-    if (Navigator.of(context).canPop()) {
-      Navigator.pop(context);
-    } else {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const MatchScreen()),
-      );
-    }
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const HomeScreen(initialIndex: 0), // Navigate to HomeScreen, Match tab
+      ),
+      (route) => false,
+    );
   }
 
-  void _leaveGame() {
+  void _leaveGame() async {
     print("Leaving game session...");
-    gameTimer?.cancel();
-    signalingSubscription?.cancel();
-    _peerConnection?.close();
-    _localStream?.dispose();
-    if (isRendererInitialized) {
-      _remoteRenderer.dispose();
+    try {
+      await _engine.leaveChannel();
+      await _engine.release();
+      print("Agora resources released");
+    } catch (e) {
+      print("Error during Agora cleanup: $e");
     }
 
-    if (Navigator.of(context).canPop()) {
-      Navigator.pop(context);
-    } else {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const MatchScreen()),
-      );
-    }
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const HomeScreen(initialIndex: 0), // Navigate to HomeScreen, Match tab
+      ),
+      (route) => false,
+    );
   }
 
   @override
   void dispose() {
     print("Disposing GamePage...");
     gameTimer?.cancel();
-    signalingSubscription?.cancel();
-    _peerConnection?.close();
-    _localStream?.dispose();
-    if (isRendererInitialized) {
-      _remoteRenderer.dispose();
-    }
+    _engine.release();
     super.dispose();
   }
 
@@ -397,41 +281,18 @@ class _GamePageState extends State<GamePage> {
                 ),
               ),
           const SizedBox(height: 20),
-          const Text('Voice Chat:'),
-          _buildVoiceActivityIndicators(),
-          const SizedBox(height: 20),
+          TextButton(
+            onPressed: () {
+              setState(() {
+                isAudioMuted = !isAudioMuted;
+              });
+              _engine.muteLocalAudioStream(isAudioMuted);
+              print(isAudioMuted ? "Muted" : "Unmuted");
+            },
+            child: Text(isAudioMuted ? "Unmute" : "Mute"),
+          ),
         ],
       ),
-    );
-  }
-
-  Widget _buildVoiceActivityIndicators() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-      children: [
-        Column(
-          children: [
-            const Text('You', style: TextStyle(fontWeight: FontWeight.bold)),
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 300),
-              width: 10,
-              height: 40,
-              color: Colors.blue,
-            ),
-          ],
-        ),
-        Column(
-          children: [
-            const Text('Opponent', style: TextStyle(fontWeight: FontWeight.bold)),
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 300),
-              width: 10,
-              height: 40,
-              color: Colors.red,
-            ),
-          ],
-        ),
-      ],
     );
   }
 }

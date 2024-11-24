@@ -8,6 +8,8 @@ import 'package:my_new_app/authentication/login_screen.dart';
 import 'package:my_new_app/homeScreen/home_screen.dart';
 import 'package:my_new_app/models/person.dart' as personModel;
 import 'package:my_new_app/models/questionnaire_data.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:path_provider/path_provider.dart';
 
 class AuthenticationController extends GetxController {
   static AuthenticationController get instance => Get.find();
@@ -24,41 +26,46 @@ class AuthenticationController extends GetxController {
     ever(firebaseCurrentUser, _handleAuthStateChanged);
   }
 
-  Future<void> _handleAuthStateChanged(User? currentUser) async {
-    if (currentUser == null) {
+  Future<void> _handleAuthStateChanged(User? user) async {
+    final prefs = await SharedPreferences.getInstance();
+    final lastPage = prefs.getString('last_page') ?? '/home';
+
+    if (user == null) {
       Get.offAll(() => const LoginScreen());
     } else {
-      await Future.delayed(const Duration(milliseconds: 500));
-      await _checkUserDataAndNavigate();
+      await _navigateToLastPageOrProfileCompletion(user.uid, lastPage);
     }
   }
 
-  Future<void> _checkUserDataAndNavigate() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
+  Future<void> _navigateToLastPageOrProfileCompletion(String userId, String lastPage) async {
+    try {
+      final userDoc = await FirebaseFirestore.instance.collection('users').doc(userId).get();
+      final userData = userDoc.data();
 
-    final userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
-    final userData = userDoc.data();
+      if (userData == null) {
+        Get.offAllNamed('/nickname');
+        return;
+      }
 
-    if (userData == null) {
-      Get.offAllNamed('/nickname');
-      return;
-    }
-
-    if (!(userData['nickname'] ?? '').isNotEmpty) {
-      Get.offAllNamed('/nickname');
-    } else if (userData['birthdate'] == null) {
-      Get.offAllNamed('/birthdate');
-    } else if (!(userData['gender'] ?? '').isNotEmpty) {
-      Get.offAllNamed('/gender');
-    } else if (!(userData['preferredDistance'] ?? 0.0 > 0)) {
-      Get.offAllNamed('/distance');
-    } else if ((userData['photos'] ?? []).isEmpty) {
-      Get.offAllNamed('/pictures');
-    } else if (!hasMinimumAnswers(userData['questionnaireAnswers'])) {
-      Get.offAllNamed('/updateQuestionnaire');
-    } else {
-      Get.offAllNamed('/home');
+      if ((userData['nickname'] ?? '').isEmpty) {
+        Get.offAllNamed('/nickname');
+      } else if ((userData['birthdate'] ?? '').isEmpty) {
+        Get.offAllNamed('/birthdate');
+      } else if ((userData['gender'] ?? '').isEmpty) {
+        Get.offAllNamed('/gender');
+      } else if ((userData['preferredDistance'] ?? 0.0) <= 0.0) {
+        Get.offAllNamed('/distance');
+      } else if ((userData['photos'] ?? []).isEmpty) {
+        Get.offAllNamed('/pictures');
+      } else if (!hasMinimumAnswers(userData['questionnaireAnswers'])) {
+        Get.offAllNamed('/updateQuestionnaire');
+      } else {
+        if (Get.currentRoute != lastPage) {
+          Get.offAllNamed(lastPage);
+        }
+      }
+    } catch (e) {
+      Get.snackbar("Navigation Error", "An error occurred: $e");
     }
   }
 
@@ -87,46 +94,45 @@ class AuthenticationController extends GetxController {
     }
   }
 
+  Future<void> saveLastPage(String routeName) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('last_page', routeName);
+  }
+
   Future<bool> nicknameExists(String nickname) async {
-    final result = await FirebaseFirestore.instance
-        .collection('users')
-        .where('nickname', isEqualTo: nickname)
-        .limit(1)
-        .get();
-    return result.docs.isNotEmpty;
+    try {
+      final result = await FirebaseFirestore.instance
+          .collection('users')
+          .where('nickname', isEqualTo: nickname)
+          .limit(1)
+          .get();
+      return result.docs.isNotEmpty;
+    } catch (e) {
+      return false;
+    }
   }
 
   Future<void> pickImageFileFromGallery() async {
-    final imageFile = await ImagePicker().pickImage(source: ImageSource.gallery);
-    if (imageFile != null) {
-      pickedFile.value = File(imageFile.path);
-      Get.snackbar("Profile Image", "You have successfully picked your profile image");
+    try {
+      final imageFile = await ImagePicker().pickImage(source: ImageSource.gallery);
+      if (imageFile != null) {
+        pickedFile.value = File(imageFile.path);
+        Get.snackbar("Profile Image", "You have successfully picked your profile image");
+      }
+    } catch (e) {
+      Get.snackbar("Error", "Failed to pick an image: $e");
     }
   }
 
   Future<void> captureImageFromPhoneCamera() async {
-    final imageFile = await ImagePicker().pickImage(source: ImageSource.camera);
-    if (imageFile != null) {
-      pickedFile.value = File(imageFile.path);
-      Get.snackbar("Profile Image", "You have successfully captured your profile image");
-    }
-  }
-
-  Future<void> updateUserMbti(String mbti) async {
     try {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user != null) {
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc(user.uid)
-            .update({'mbti': mbti});
-        print('MBTI updated successfully.');
-      } else {
-        Get.snackbar('Error', 'User not authenticated.');
+      final imageFile = await ImagePicker().pickImage(source: ImageSource.camera);
+      if (imageFile != null) {
+        pickedFile.value = File(imageFile.path);
+        Get.snackbar("Profile Image", "You have successfully captured your profile image");
       }
     } catch (e) {
-      print('Failed to update MBTI: $e');
-      Get.snackbar('Error', 'Failed to update MBTI.');
+      Get.snackbar("Error", "Failed to capture an image: $e");
     }
   }
 
@@ -181,6 +187,39 @@ class AuthenticationController extends GetxController {
       Get.offAll(() => const HomeScreen());
     } catch (error) {
       Get.snackbar("Account Creation Unsuccessful", "Error occurred: $error");
+    }
+  }
+
+  Future<void> setUpAgoraLogs() async {
+    try {
+      final directory = await getApplicationDocumentsDirectory();
+      String logPath = "${directory.path}/agora-iris.log";
+
+      // Configure your Agora instance with the log file path
+      // Example:
+      // yourAgoraInstance.setLogFile(logPath);
+
+      print("Agora logs will be saved to: $logPath");
+    } catch (e) {
+      Get.snackbar("Error", "Failed to set up Agora logs: $e");
+    }
+  }
+
+  Future<void> updateUserMbti(String mbti) async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .update({'mbti': mbti});
+        print('MBTI updated successfully.');
+      } else {
+        Get.snackbar('Error', 'User not authenticated.');
+      }
+    } catch (e) {
+      print('Failed to update MBTI: $e');
+      Get.snackbar('Error', 'Failed to update MBTI.');
     }
   }
 }

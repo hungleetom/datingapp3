@@ -3,7 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl_phone_field/intl_phone_field.dart'; // For phone input with country code detection
-import 'package:my_new_app/homeScreen/home_screen.dart';
+import 'package:my_new_app/newUserScreens/nickname_screen.dart'; // Import NicknameScreen
 
 class PhoneNumberVerificationScreen extends StatefulWidget {
   const PhoneNumberVerificationScreen({super.key});
@@ -153,11 +153,11 @@ class _PhoneNumberVerificationScreenState extends State<PhoneNumberVerificationS
     }
   }
 
-  // Modify this method to call _storePhoneNumber
+  // Modify this method to navigate to NicknameScreen after saving
   void savePhoneNumberToFirestore() async {
     try {
       await _storePhoneNumber(phoneNumber);
-      Get.offAll(() => const HomeScreen()); // Go to home after successful save
+      Get.offAll(() => const NicknameScreen()); // Navigate to NicknameScreen after successful save
     } catch (e) {
       Get.snackbar("Error", "Failed to store phone number: $e");
     }
