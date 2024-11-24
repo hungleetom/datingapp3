@@ -1,4 +1,21 @@
-# Miscellaneous
+# Ignore everything by default, except the lib directory
+*
+!lib/
+lib/*
+!lib/**
+
+# Exceptions to above rules.
+!default.mode1v3
+!default.mode2v3
+!default.pbxuser
+!default.perspectivev3
+
+# Specific files to ignore (security-related)
+lib/authentication/login_screen.dart
+lib/controller/authentication_controller.dart
+lib/firebase_options.dart
+
+# Miscellaneous files to ignore
 *.class
 *.log
 *.pyc
@@ -10,18 +27,14 @@
 .svn/
 migrate_working_dir/
 
-# IntelliJ related
+# IDE-related files
 *.iml
 *.ipr
 *.iws
 .idea/
+.vscode/
 
-# The .vscode folder contains launch configuration and tasks you configure in
-# VS Code which you may wish to be included in version control, so this line
-# is commented out by default.
-#.vscode/
-
-# Flutter/Dart/Pub related
+# Flutter/Dart/Pub related files
 **/doc/api/
 **/ios/Flutter/.last_build_id
 .dart_tool/
@@ -29,7 +42,16 @@ migrate_working_dir/
 .flutter-plugins-dependencies
 .pub-cache/
 .pub/
-/build/
+
+# Ignore all build artifacts
+**/build/
+android/app/build/
+ios/Flutter/App.framework
+ios/Flutter/Flutter.framework
+**/intermediates/
+**/flutter_assets/
+**/release/
+**/debug/
 
 # Symbolication related
 app.*.symbols

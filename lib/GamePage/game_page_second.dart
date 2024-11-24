@@ -16,9 +16,9 @@ class GamePageSecond extends StatefulWidget {
 }
 
 class _GamePageSecondState extends State<GamePageSecond> {
-  static const String appId = "48a56dde7fc34804a142356a57f03c34"; // Replace with your Agora App ID
-  static const String tempToken = "007eJxTYFgRpPFnrd2EmX2fSn89asst9fxsN/2U2c66H8fXv+xsTL2jwGBikWhqlpKSap6WbGxiYWCSaGhiZGxqlmhqnmZgDBSaMNMmvSGQkWG1vhwzIwMEgvg8DCWpxSXxyRmJeXmpOQwMAH1zJWc="; // Replace with a temporary token for testing
-  static const String channelName = "relationship_game"; // Replace with your channel name
+ static const String appId = "app_id"; // Replace with your Agora App ID
+  static const String tempToken = "temp_token"; // Replace with a temporary token for testing
+  static const String channelName = "name"; // Replace with your channel name
 
   String currentUserId = FirebaseAuth.instance.currentUser!.uid;
   String opponentNickname = 'Loading...';

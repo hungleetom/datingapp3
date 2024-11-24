@@ -1,13 +1,15 @@
-gradle-wrapper.jar
-/.gradle
-/captures/
-/gradlew
-/gradlew.bat
-/local.properties
-GeneratedPluginRegistrant.java
+*
+!lib/
+lib/*
+!lib/**
 
-# Remember to never publicly share your keystore.
-# See https://flutter.dev/to/reference-keystore
-key.properties
-**/*.keystore
-**/*.jks
+# Exceptions to above rules.
+!default.mode1v3
+!default.mode2v3
+!default.pbxuser
+!default.perspectivev3
+
+# Specific files to ignore
+lib/authentication/login_screen.dart
+lib/controller/authentication_controller.dart
+lib/firebase_options.dart

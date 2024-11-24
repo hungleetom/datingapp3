@@ -31,8 +31,8 @@ void main() async {
 
   // Initialize Kakao SDK
   kakao.KakaoSdk.init(
-    nativeAppKey: '074eed505175c44c871b06c9d10d6ed0',
-    javaScriptAppKey: '384a447a2e410ecb2cc34dbbd921dfd5',
+    nativeAppKey: 'native_app_key',
+    javaScriptAppKey: 'javascript_app_key',
   );
 
   // Initialize other services
@@ -164,17 +164,13 @@ class AuthenticationFlow extends StatelessWidget {
         return const NicknameScreen();
       }
 
-      // Debug: Print user data to see what's inside
       print("User data retrieved successfully: $userData");
-
-      // Step 4: Update user's age if necessary
       try {
         await _updateUserAge(user.uid, userData);
       } catch (e) {
         print("Error updating user's age: $e");
       }
 
-      // Step 5: Check if user profile fields are complete
       if ((userData['nickname'] ?? '').isEmpty) {
         print("User nickname is missing. Navigating to NicknameScreen.");
         await prefs.setString('last_page', '/nickname');
@@ -211,7 +207,7 @@ class AuthenticationFlow extends StatelessWidget {
         return const QuestionnaireScreen();
       }
 
-      // Step 6: Mark onboarding as complete
+
       await prefs.setBool('onboarding_complete', true);
       await prefs.setString('last_page', '/home');
       print("Onboarding complete. Navigating to HomeScreen.");
